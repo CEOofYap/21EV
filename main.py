@@ -48,11 +48,14 @@ def check_value(hand: list):
                 new_values.add(v + 10)
             elif card[1] == 0:
                 new_values.add(v + 1)
-                new_values.add(v + 11) if len(hand) <3 else new_values.add(v + 10)
+                if len(hand) < 3:
+                    new_values.add(v + 11)
+                else:
+                    new_values.add(v + 10)
             else:
                 new_values.add(v + card[1] + 1)
         potential_values = new_values
-    return list(potential_values)
+    return sorted(list(potential_values))
 
 def check_inst_win_or_run(hand: list, v: list):
     win = 0
@@ -103,19 +106,38 @@ def check_winner(hand1: list,hand2: list, v1: list, v2: list):
         else: #explode
             return (1, 2)
     return None
-    
+
+def check_duel(v1: list, v2: list):
+    best1 = 0
+    best2 = 0
+    for v in v1:
+        if v <= 21:
+            best1 = max(best1, v)
+        else:
+            break
+    for v in v2:
+        if v <= 21:
+            best2 = max(best2, v)
+        else:
+            break
+    if best1 == best2:
+        return (0, 0)
+    elif best1 > best2:
+        return (1, 2) if best1 == 21 else (1, 1)
+    else:
+        return (2, 2) if best2 == 21 else (2, 1)
+
 # TODO: Decide before drawing any card whether to run away
 
-        
 
 
-
-
-hand2 = [(3, 1), (0, 1), (3, 1), (0, 4), (0, 0)]
-hand1 = [(0, 3), (0, 0)]
+hand1 = [(3, 3), (0, 1), (3, 1), (0, 0)]
+hand2 = [(0, 7), (0, 0), (0, 7)]
 v1 = check_value(hand1)
 v2 = check_value(hand2)
-print(check_winner(hand1, hand2, v1, v2))
+print(v1)
+print(v2)
+print(check_duel(v1, v2))
 # hand2 = [(3, 0), (0, 1), (1, 0)]
 # v2 = check_value(hand2)
 # print(v1)
