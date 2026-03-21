@@ -128,16 +128,51 @@ def check_duel(v1: list, v2: list):
         return (2, 2) if best2 == 21 else (2, 1)
 
 # TODO: Decide before drawing any card whether to run away
-
+EV_table = {
+    "15": [2, 3, 4],
+    "16": [2, 3, 4],
+    "17": [2, 3, 4],
+    "18": [2, 3, 4],
+    "19": [2, 3, 4],
+    "20": [2, 3, 4],
+    "S4": [2, 3, 4], # soft 14...
+    "S5": [2, 3, 4],
+    "S6": [2, 3, 4],
+    "S7": [2, 3, 4],
+    "S8": [2, 3, 4],
+    "S9": [2, 3, 4],# soft 19
+}
+#Turn values into key for ev table for hands with enough value, if too small will have bug
+def val_to_key(values: list):
+    s = ""
+    if len(values) < 2:
+        if values[0] > 20 or values[0] < 15:
+            print("ERROR: Value too big or too small")
+            return None
+        s = str(values[0])
+    else: 
+        if values[1] < 15:
+            print("ERROR: softhand too small")
+            return None
+        if values[1] > 21: #softhand forced into hard one
+            s = str(values[0])
+        elif values[1] == 21:
+            print("ERROR: You alr have 21")
+            return None
+        else:
+            s = "S" + str(values[1]-1)
+    return s
+    
 
 
 hand1 = [(3, 3), (0, 1), (3, 1), (0, 0)]
-hand2 = [(0, 7), (0, 0), (0, 7)]
+hand2 = [(0, 6), (0, 0)]
 v1 = check_value(hand1)
 v2 = check_value(hand2)
-print(v1)
+# print(v1)
 print(v2)
-print(check_duel(v1, v2))
+# print(check_duel(v1, v2))
+print(val_to_key(v2))
 # hand2 = [(3, 0), (0, 1), (1, 0)]
 # v2 = check_value(hand2)
 # print(v1)
