@@ -27,15 +27,7 @@ class Deck:
 def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
 
-d = Deck()
-p1_hand = []
-p2_hand = []
-p1_hand.append(d.rand_take_card())
-p1_hand.append(d.rand_take_card())
-p2_hand.append(d.rand_take_card())
-p2_hand.append(d.rand_take_card())
-
-def show_hand():
+def show_hand(p1_hand: list, p2_hand: list):
     print(f"P1 hand: {p1_hand} \nTotal P1 value: {check_value(p1_hand)}")
     print(f"P2 hand: {p2_hand} \nTotal P2 value: {check_value(p2_hand)}")
 
@@ -57,6 +49,7 @@ def check_value(hand: list):
         potential_values = new_values
     return sorted(list(potential_values))
 
+# -1 means player can run, 1 or 2 means player win with that multiplier+1, 0 means player didnt win
 def check_inst_win_or_run(hand: list, v: list):
     win = 0
     if len(hand) == 2:
@@ -70,44 +63,47 @@ def check_inst_win_or_run(hand: list, v: list):
         elif 15 in v:
             win = -1
     return win
-# return tuple (a, b), a = who wins(0, 1, 2), b = winning multiplier(0, 1, 2, 3) if any of them reach dragon or inst win else return None
-def check_winner(hand1: list,hand2: list, v1: list, v2: list):
+# return tuple (a, b), a = who wins(0, 1, 2), b = winning multiplier(0, 1, 2, 3)
+def check_inst_winner(hand1: list,hand2: list, v1: list, v2: list):
     p1_win = check_inst_win_or_run(hand1, v1)
     p2_win = check_inst_win_or_run(hand2, v2)
 
     if p1_win <= 0 and p2_win <= 0:
-        # continue fight
+        # continue fight or run away
         # Make run away possible in future
         pass
     elif (p1_win < 0 and p2_win > 0) or (p1_win > 0 and p2_win < 0):
         # one of them can run away
-        pass
+        return (0, 0) # Nothing happens
     else:
         if p1_win == p2_win:
-            return (0, 0)
+            return (0, 0) #Draw no one wins
         elif p1_win > p2_win:
             return (1, p1_win+1)
         elif p1_win < p2_win:
             return (2, p2_win+1)
-        
-    #check if one of them reach 5 cards, both of them cannot reach 5 cards at the same time
-    if len(hand1) == 5:
-        if 21 in v1:
-            return (1, 3)
-        elif v1[0] < 21: 
-            return (1, 2)
-        else: #explode
-            return (2, 2)
-    if len(hand2) == 5:
-        if 21 in v2:
-            return (2, 3)
-        elif v2[0] < 21: 
-            return (2, 2)
-        else: #explode
-            return (1, 2)
     return None
+    # #check if one of them reach 5 cards, both of them cannot reach 5 cards at the same time
+    # if len(hand1) == 5:
+    #     if 21 in v1:
+    #         return (1, 3)
+    #     elif v1[0] < 21: 
+    #         return (1, 2)
+    #     else: #explode
+    #         return (2, 2)
+    # if len(hand2) == 5:
+    #     if 21 in v2:
+    #         return (2, 3)
+    #     elif v2[0] < 21: 
+    #         return (2, 2)
+    #     else: #explode
+    #         return (1, 2)
 
-def check_duel(v1: list, v2: list):
+def check_dragon(): #TODO make function for checking player reaching 5 cards
+    pass
+
+# dealer and player duel after dealer chose to stand, return tuple (a, b) where a = which player wins(0, 1, 2), and b = winning multiplier(0, 1, 2, 3)
+def check_duel(hand1: list,hand2: list, v1: list, v2: list): #Assume no player reach 5 cards
     best1 = 0
     best2 = 0
     for v in v1:
@@ -127,7 +123,6 @@ def check_duel(v1: list, v2: list):
     else:
         return (2, 2) if best2 == 21 else (2, 1)
 
-# TODO: Decide before drawing any card whether to run away
 EV_table = {
     "15": [2, 3, 4],
     "16": [2, 3, 4],
@@ -135,12 +130,12 @@ EV_table = {
     "18": [2, 3, 4],
     "19": [2, 3, 4],
     "20": [2, 3, 4],
-    "S4": [2, 3, 4], # soft 14...
-    "S5": [2, 3, 4],
-    "S6": [2, 3, 4],
-    "S7": [2, 3, 4],
-    "S8": [2, 3, 4],
-    "S9": [2, 3, 4],# soft 19
+    "S14": [2, 3, 4], # soft 14...
+    "S15": [2, 3, 4],
+    "S16": [2, 3, 4],
+    "S17": [2, 3, 4],
+    "S18": [2, 3, 4],
+    "S19": [2, 3, 4],# soft 19
 }
 #Turn values into key for ev table for hands with enough value, if too small will have bug
 def val_to_key(values: list):
@@ -159,20 +154,74 @@ def val_to_key(values: list):
         elif values[1] == 21:
             print("ERROR: You alr have 21")
             return None
-        else:
-            s = "S" + str(values[1]-1)
+        else: #Softhand
+            s = "S" + str(values[1])
     return s
     
+def simulate():
+    deck = Deck()
+    player_hand = []
+    dealer_hand = []
+    player_hand.append(deck.rand_take_card())
+    player_hand.append(deck.rand_take_card())
+    dealer_hand.append(deck.rand_take_card())
+    dealer_hand.append(deck.rand_take_card())
+    player_value = check_value(player_hand)
+    dealer_value = check_value(dealer_hand)
+    inst = check_inst_winner(player_hand, dealer_hand, player_value, dealer_value)
+    if inst:
+        print(f"player {inst[0]} won {inst[1]}")
+        show_hand(player_hand, dealer_hand)
+    else:
+        player_action = []
+        dealer_action = []
+        while player_value[-1] < 15: #Take until enough
+            player_hand.append(deck.rand_take_card())
+            player_value = check_value(player_hand)
+            if len(player_hand) == 5: #TODO make function for checking player reaching 5 cards
+                if 21 in player_value:
+                    print(f"Player 1 dragon and 21")
+                    show_hand(player_hand, dealer_hand)
+                elif player_value[0] < 21:
+                    print(f"player 1 dragon")
+                    show_hand(player_hand, dealer_hand)
+                else:
+                    print(f"Player 1 lose")
+                    show_hand(player_hand, dealer_hand)
+        #Player's turn of taking cards
+        while len(player_hand) < 5: # TODO: let player draw card until 15
+            hit = random.randint(0,1) #randomly hit or stand
+            if hit:
+                player_action.append((val_to_key(player_value), hit, len(player_hand)))
+                player_hand.append(deck.rand_take_card())
+                player_value = check_value(player_hand)
+            else:
+                break
+        #Check if player reach 5 cards
+        if len(player_hand) == 5:
+            if 21 in player_value:
+                print(f"Player 1 dragon and 21")
+                show_hand(player_hand, dealer_hand)
+            elif player_value[0] < 21:
+                print(f"player 1 dragon")
+                show_hand(player_hand, dealer_hand)
+            else:
+                print(f"Player 1 lose")
+                show_hand(player_hand, dealer_hand)
+        # dealer turn of taking cards
 
 
-hand1 = [(3, 3), (0, 1), (3, 1), (0, 0)]
-hand2 = [(0, 6), (0, 0)]
+hand1 = [(3, 0), (0, 9)]
+hand2 = [(0, 3), (0, 4)]
 v1 = check_value(hand1)
 v2 = check_value(hand2)
+show_hand(hand1, hand2)
+print(check_inst_winner(hand1, hand2, v1, v2))
 # print(v1)
-print(v2)
+# print(v2)
 # print(check_duel(v1, v2))
-print(val_to_key(v2))
+# print(val_to_key(v2))
+# print(EV_table[val_to_key(v2)])
 # hand2 = [(3, 0), (0, 1), (1, 0)]
 # v2 = check_value(hand2)
 # print(v1)
