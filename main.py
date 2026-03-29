@@ -83,24 +83,7 @@ def check_inst_winner(hand1: list,hand2: list, v1: list, v2: list):
         elif p1_win < p2_win:
             return (2, p2_win+1)
     return None
-    # #check if one of them reach 5 cards, both of them cannot reach 5 cards at the same time
-    # if len(hand1) == 5:
-    #     if 21 in v1:
-    #         return (1, 3)
-    #     elif v1[0] < 21: 
-    #         return (1, 2)
-    #     else: #explode
-    #         return (2, 2)
-    # if len(hand2) == 5:
-    #     if 21 in v2:
-    #         return (2, 3)
-    #     elif v2[0] < 21: 
-    #         return (2, 2)
-    #     else: #explode
-    #         return (1, 2)
 
-def check_dragon(): #TODO make function for checking player reaching 5 cards
-    pass
 
 # dealer and player duel after dealer chose to stand, return tuple (a, b) where a = which player wins(0, 1, 2), and b = winning multiplier(0, 1, 2, 3)
 def check_duel(hand1: list,hand2: list, v1: list, v2: list): #Assume no player reach 5 cards
@@ -157,8 +140,27 @@ def val_to_key(values: list):
         else: #Softhand
             s = "S" + str(values[1])
     return s
-    
-def simulate():
+# Check if 5 cards and return result. If < 5 cards, return None
+def check_five_cards(hand: list, value: list) -> str:
+    if len(hand) == 5:
+        if 21 in value:
+            return "dragon_21"
+        elif value[0] < 21:
+            return "dragon"
+        else:
+            return "bust"
+    return None
+
+def take_until_enough(hand: list, deck:Deck) -> tuple[list, list]:
+    value = check_value(hand)
+    while value[-1] < 16: #Take until enough
+        hand.append(deck.rand_take_card())
+        value = check_value(hand)
+        if len(hand) == 5: 
+            break
+    return hand, value
+
+def simulate() -> None:
     deck = Deck()
     player_hand = []
     dealer_hand = []
@@ -170,53 +172,132 @@ def simulate():
     dealer_value = check_value(dealer_hand)
     inst = check_inst_winner(player_hand, dealer_hand, player_value, dealer_value)
     if inst:
-        print(f"player {inst[0]} won {inst[1]}")
+        print(f"player {inst[0]} inst won {inst[1]}X")
         show_hand(player_hand, dealer_hand)
     else:
         player_action = []
         dealer_action = []
-        while player_value[-1] < 15: #Take until enough
-            player_hand.append(deck.rand_take_card())
-            player_value = check_value(player_hand)
-            if len(player_hand) == 5: #TODO make function for checking player reaching 5 cards
-                if 21 in player_value:
-                    print(f"Player 1 dragon and 21")
+        if 15 in player_value: #Player run?
+            run = random.randint(0,1)
+            if run:
+                player_action.append((val_to_key(player_value), run, len(player_hand)))
+                # insert into EV table
+                print("Player 1 ran away")
+                show_hand(player_hand, dealer_hand)
+                return
+        if 15 in dealer_value: # Dealer run?
+            run = random.randint(0,1)
+            if run:
+                dealer_action.append((val_to_key(dealer_value), run, len(dealer_hand)))
+                # insert into EV table
+                print("Dealer ran away")
+                show_hand(player_hand, dealer_hand)
+                return
+        
+        # Player forced to take cards   
+        player_hand, player_value = take_until_enough(player_hand, deck)
+        result = check_five_cards(player_hand, player_value)
+        if result:
+            match result:
+                case "dragon_21":
+                    print(f"Player 1 win with 3x multiplier")
                     show_hand(player_hand, dealer_hand)
-                elif player_value[0] < 21:
-                    print(f"player 1 dragon")
+                case "dragon":
+                    print(f"Player 1 win with 3x multiplier")
                     show_hand(player_hand, dealer_hand)
-                else:
-                    print(f"Player 1 lose")
+                case "bust":
+                    print(f"Player 1 lose with 2x multiplier")
                     show_hand(player_hand, dealer_hand)
-        #Player's turn of taking cards
-        while len(player_hand) < 5: # TODO: let player draw card until 15
-            hit = random.randint(0,1) #randomly hit or stand
-            if hit:
+                case _:
+                    print("ERROR: unknown results from check_dragon")
+                    show_hand(player_hand, dealer_hand)
+            return #end simulation
+        
+        #Player's turn of taking cards actions
+        while len(player_hand) < 5: 
+            hit = random.randint(0,1) #randomly hit or stand until explode or stop
+            if hit and player_value[0] < 21 and 21 not in player_value:
                 player_action.append((val_to_key(player_value), hit, len(player_hand)))
                 player_hand.append(deck.rand_take_card())
                 player_value = check_value(player_hand)
             else:
+                player_action.append((val_to_key(player_value), hit, len(player_hand)))
                 break
+
         #Check if player reach 5 cards
-        if len(player_hand) == 5:
-            if 21 in player_value:
-                print(f"Player 1 dragon and 21")
-                show_hand(player_hand, dealer_hand)
-            elif player_value[0] < 21:
-                print(f"player 1 dragon")
-                show_hand(player_hand, dealer_hand)
+        result = check_five_cards(player_hand, player_value)
+        if result:
+            match result:
+                case "dragon_21":
+                    print(f"Player 1 win with 3x multiplier")
+                    show_hand(player_hand, dealer_hand)
+                case "dragon":
+                    print(f"Player 1 win with 3x multiplier")
+                    show_hand(player_hand, dealer_hand)
+                case "bust":
+                    print(f"Player 1 lose with 2x multiplier")
+                    show_hand(player_hand, dealer_hand)
+                case _:
+                    print("ERROR: unknown results from check_dragon")
+                    show_hand(player_hand, dealer_hand)
+            # Enter into EV table
+            return #end simulation
+            
+        # dealer forced to take cards
+        dealer_hand, dealer_value = take_until_enough(dealer_hand, deck)
+        result = check_five_cards(dealer_hand, dealer_value)
+        if result:
+            match result:
+                case "dragon_21":
+                    print(f"Player 2 win with 3x multiplier")
+                    show_hand(player_hand, dealer_hand)
+                case "dragon":
+                    print(f"Player 2 win with 3x multiplier")
+                    show_hand(player_hand, dealer_hand)
+                case "bust":
+                    print(f"Player 2 lose with 2x multiplier")
+                    show_hand(player_hand, dealer_hand)
+                case _:
+                    print("ERROR: unknown results from check_dragon")
+                    show_hand(player_hand, dealer_hand)
+            return #end simulation
+        
+        # Dealer's turn of taking card actions
+        while len(dealer_hand) < 5: 
+            hit = random.randint(0,1) #randomly hit or stand until explode or stop
+            if hit and dealer_value[0] < 21 and 21 not in dealer_value:
+                dealer_action.append((val_to_key(dealer_value), hit, len(dealer_hand)))
+                dealer_hand.append(deck.rand_take_card())
+                dealer_value = check_value(dealer_hand)
             else:
-                print(f"Player 1 lose")
-                show_hand(player_hand, dealer_hand)
-        # dealer turn of taking cards
+                dealer_action.append((val_to_key(dealer_value), hit, len(dealer_hand)))
+                break
+        # Check if dealer reach 5 cards
+        result = check_five_cards(dealer_hand, dealer_value)
+        if result:
+            match result:
+                case "dragon_21":
+                    print(f"Player 2 win with 3x multiplier")
+                    show_hand(player_hand, dealer_hand)
+                case "dragon":
+                    print(f"Player 2 win with 3x multiplier")
+                    show_hand(player_hand, dealer_hand)
+                case "bust":
+                    print(f"Player 2 lose with 2x multiplier")
+                    show_hand(player_hand, dealer_hand)
+                case _:
+                    print("ERROR: unknown results from check_dragon")
+                    show_hand(player_hand, dealer_hand)
+            # Enter into EV table
+            return #end simulation
+        
+        # Make them duel then enter into EV table
+        show_hand(player_hand, dealer_hand)
+        print(f"Player action: {player_action}\t Dealer action: {dealer_action}") #TODO: make emptying dealer and player hand
 
 
-hand1 = [(3, 0), (0, 9)]
-hand2 = [(0, 3), (0, 4)]
-v1 = check_value(hand1)
-v2 = check_value(hand2)
-show_hand(hand1, hand2)
-print(check_inst_winner(hand1, hand2, v1, v2))
+# show_hand(hand1, hand2)
+# print(check_inst_winner(hand1, hand2, v1, v2))
 # print(v1)
 # print(v2)
 # print(check_duel(v1, v2))
@@ -224,9 +305,14 @@ print(check_inst_winner(hand1, hand2, v1, v2))
 # print(EV_table[val_to_key(v2)])
 # hand2 = [(3, 0), (0, 1), (1, 0)]
 # v2 = check_value(hand2)
-# print(v1)
-# print(v2)
 
+
+if __name__ == "__main__":
+    hand1 = [(3, 9), (0, 4), (0, 4), (0, 2), (0, 1)]
+    hand2 = [(0, 5), (0, 5)]
+    v1 = check_value(hand1)
+    v2 = check_value(hand2)
+    simulate()
 
 
 # while True:
