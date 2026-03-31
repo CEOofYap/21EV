@@ -1,5 +1,8 @@
 import random
 import os
+import json
+import time
+
 class Deck:
     def __init__(self):
         cards = []
@@ -71,7 +74,7 @@ def check_inst_winner(hand1: list,hand2: list, v1: list, v2: list):
     if p1_win <= 0 and p2_win <= 0:
         # continue fight or run away
         # Make run away possible in future
-        pass
+        return None
     elif (p1_win < 0 and p2_win > 0) or (p1_win > 0 and p2_win < 0):
         # one of them can run away
         return (0, 0) # Nothing happens
@@ -82,10 +85,10 @@ def check_inst_winner(hand1: list,hand2: list, v1: list, v2: list):
             return (1, p1_win+1)
         elif p1_win < p2_win:
             return (2, p2_win+1)
-    return None
+    
 
 
-# dealer and player duel after dealer chose to stand, return tuple (a, b) where a = which player wins(0, 1, 2), and b = winning multiplier(0, 1, 2, 3)
+# dealer and player duel after dealer chose to stand, return tuple (a, b) where a = which player wins[0, 1, 2], and b = winning multiplier[0, 1, 2, 3]
 def check_duel(hand1: list,hand2: list, v1: list, v2: list): #Assume no player reach 5 cards
     best1 = 0
     best2 = 0
@@ -106,20 +109,35 @@ def check_duel(hand1: list,hand2: list, v1: list, v2: list): #Assume no player r
     else:
         return (2, 2) if best2 == 21 else (2, 1)
 
-EV_table = {
-    "15": [2, 3, 4],
-    "16": [2, 3, 4],
-    "17": [2, 3, 4],
-    "18": [2, 3, 4],
-    "19": [2, 3, 4],
-    "20": [2, 3, 4],
-    "S14": [2, 3, 4], # soft 14...
-    "S15": [2, 3, 4],
-    "S16": [2, 3, 4],
-    "S17": [2, 3, 4],
-    "S18": [2, 3, 4],
-    "S19": [2, 3, 4],# soft 19
-}
+# EV_table = {
+#     "15": [2, 3, 4],
+#     "16": [2, 3, 4],
+#     "17": [2, 3, 4],
+#     "18": [2, 3, 4],
+#     "19": [2, 3, 4],
+#     "20": [2, 3, 4],
+#     "S15": [2, 3, 4],
+#     "S16": [2, 3, 4],
+#     "S17": [2, 3, 4],
+#     "S18": [2, 3, 4],
+#     "S19": [2, 3, 4],# soft 19
+#     "S20": [2, 3, 4], # soft 20...
+# }
+
+# table_template = {
+#     "15": [0.0, 0.0, 0.0],
+#     "16": [0.0, 0.0, 0.0],
+#     "17": [0.0, 0.0, 0.0],
+#     "18": [0.0, 0.0, 0.0],
+#     "19": [0.0, 0.0, 0.0],
+#     "20": [0.0, 0.0, 0.0],
+#     "S15": [0.0, 0.0, 0.0],
+#     "S16": [0.0, 0.0, 0.0],
+#     "S17": [0.0, 0.0, 0.0],
+#     "S18": [0.0, 0.0, 0.0],
+#     "S19": [0.0, 0.0, 0.0],# soft 19
+#     "S20": [0.0, 0.0, 0.0],
+# }
 #Turn values into key for ev table for hands with enough value, if too small will have bug
 def val_to_key(values: list):
     s = ""
@@ -133,6 +151,12 @@ def val_to_key(values: list):
             print("ERROR: softhand too small")
             return None
         if values[1] > 21: #softhand forced into hard one
+            if values[0] <16:
+                print("ERROR: softhand forced to take cards")
+                return None
+            if values[0] > 20:
+                print("ERROR: hand busted")
+                return None
             s = str(values[0])
         elif values[1] == 21:
             print("ERROR: You alr have 21")
@@ -140,27 +164,47 @@ def val_to_key(values: list):
         else: #Softhand
             s = "S" + str(values[1])
     return s
-# Check if 5 cards and return result. If < 5 cards, return None
-def check_five_cards(hand: list, value: list) -> str:
+# Check if 5 cards and return result (a, b) with who won and how much. If < 5 cards, return None
+def check_five_cards(hand: list, value: list, player: int) -> tuple:
     if len(hand) == 5:
         if 21 in value:
-            return "dragon_21"
+            return (player, 3)
         elif value[0] < 21:
-            return "dragon"
+            return (player, 2)
         else:
-            return "bust"
+            if player == 1: #opponent win by 2
+                return (2, 2)
+            else:
+                return (1, 2)
     return None
 
 def take_until_enough(hand: list, deck:Deck) -> tuple[list, list]:
     value = check_value(hand)
-    while value[-1] < 16: #Take until enough
-        hand.append(deck.rand_take_card())
-        value = check_value(hand)
-        if len(hand) == 5: 
-            break
+    if len(hand) < 5:
+        while not any(15 < v < 22 for v in value) and value[0] < 22: #Take until enough
+            hand.append(deck.rand_take_card())
+            value = check_value(hand)
+            if len(hand) == 5: 
+                break
     return hand, value
 
+def enter_into_table(outcome: int, actions: list, hit_table: dict, hitnum_table: dict, stand_table: dict, standnum_table: dict) -> None:
+    '''
+    Enter a list of actions containing tuple of ("hand", hit?, handSize/num of cards when I make the action) and the outcome, then updates the tables
+    '''
+    for action in actions:
+        position, hit, handSize = action
+        if position: # Check if valid position
+            if hit:
+                hitnum_table[position][handSize-2] += 1
+                hit_table[position][handSize-2] += outcome
+            else:
+                standnum_table[position][handSize-2] += 1
+                stand_table[position][handSize-2] += outcome
+
+
 def simulate() -> None:
+    print()
     deck = Deck()
     player_hand = []
     dealer_hand = []
@@ -180,139 +224,198 @@ def simulate() -> None:
         if 15 in player_value: #Player run?
             run = random.randint(0,1)
             if run:
-                player_action.append((val_to_key(player_value), run, len(player_hand)))
+                player_action.append((val_to_key(player_value), 0, len(player_hand)))
                 # insert into EV table
+                player_standnum_table[val_to_key(player_value)][0] += 1 # 0 means when there is only 2 cards
                 print("Player 1 ran away")
                 show_hand(player_hand, dealer_hand)
                 return
+            else: #player hit
+                player_action.append((val_to_key(player_value), 1, len(player_hand)))
+                player_hand.append(deck.rand_take_card())
+                player_value = check_value(player_hand)
+            
         if 15 in dealer_value: # Dealer run?
             run = random.randint(0,1)
             if run:
-                dealer_action.append((val_to_key(dealer_value), run, len(dealer_hand)))
+                dealer_action.append((val_to_key(dealer_value), 0, len(dealer_hand)))
                 # insert into EV table
+                dealer_standnum_table[val_to_key(dealer_value)][0] += 1
                 print("Dealer ran away")
                 show_hand(player_hand, dealer_hand)
                 return
+            else:
+                dealer_action.append((val_to_key(dealer_value), 1, len(dealer_hand)))
+                dealer_hand.append(deck.rand_take_card())
+                dealer_value = check_value(dealer_hand)
         
         # Player forced to take cards   
         player_hand, player_value = take_until_enough(player_hand, deck)
-        result = check_five_cards(player_hand, player_value)
-        if result:
-            match result:
-                case "dragon_21":
-                    print(f"Player 1 win with 3x multiplier")
-                    show_hand(player_hand, dealer_hand)
-                case "dragon":
-                    print(f"Player 1 win with 3x multiplier")
-                    show_hand(player_hand, dealer_hand)
-                case "bust":
-                    print(f"Player 1 lose with 2x multiplier")
-                    show_hand(player_hand, dealer_hand)
-                case _:
-                    print("ERROR: unknown results from check_dragon")
-                    show_hand(player_hand, dealer_hand)
+        result = check_five_cards(player_hand, player_value, 1) # 1 means player 1
+        if result: # forced to take cards until bust, so action is not appended
+            print(f"Player {result[0]} win with {result[1]}x multiplier")
+            show_hand(player_hand, dealer_hand)
+            if result[0] == 1: # if player one wins
+                player_reward = result[1]
+            else:
+                player_reward = -result[1]
+            enter_into_table(player_reward, player_action, player_hit_table, player_hitnum_table, player_stand_table, player_standnum_table)
+            enter_into_table(-player_reward, dealer_action, dealer_hit_table, dealer_hitnum_table, dealer_stand_table, dealer_standnum_table)
             return #end simulation
-        
+
+
         #Player's turn of taking cards actions
-        while len(player_hand) < 5: 
+        while len(player_hand) < 5:
+            # Check if player are forced to take cards
+            if not any(16 < v < 22 for v in player_value) and player_value[0] < 22:
+                player_hand, player_value = take_until_enough(player_hand, deck)
+
             hit = random.randint(0,1) #randomly hit or stand until explode or stop
             if hit and player_value[0] < 21 and 21 not in player_value:
                 player_action.append((val_to_key(player_value), hit, len(player_hand)))
                 player_hand.append(deck.rand_take_card())
                 player_value = check_value(player_hand)
             else:
-                player_action.append((val_to_key(player_value), hit, len(player_hand)))
+                player_action.append((val_to_key(player_value), 0, len(player_hand)))
                 break
-
+        
+        
         #Check if player reach 5 cards
-        result = check_five_cards(player_hand, player_value)
+        result = check_five_cards(player_hand, player_value, 1) # 1 means player 1
         if result:
-            match result:
-                case "dragon_21":
-                    print(f"Player 1 win with 3x multiplier")
-                    show_hand(player_hand, dealer_hand)
-                case "dragon":
-                    print(f"Player 1 win with 3x multiplier")
-                    show_hand(player_hand, dealer_hand)
-                case "bust":
-                    print(f"Player 1 lose with 2x multiplier")
-                    show_hand(player_hand, dealer_hand)
-                case _:
-                    print("ERROR: unknown results from check_dragon")
-                    show_hand(player_hand, dealer_hand)
+            print(f"Player {result[0]} win with {result[1]}x multiplier")
+            show_hand(player_hand, dealer_hand)
             # Enter into EV table
+            if result[0] == 1: # if player one wins
+                player_reward = result[1]
+            else:
+                player_reward = -result[1]
+            enter_into_table(player_reward, player_action, player_hit_table, player_hitnum_table, player_stand_table, player_standnum_table)
+            enter_into_table(-player_reward, dealer_action, dealer_hit_table, dealer_hitnum_table, dealer_stand_table, dealer_standnum_table)
             return #end simulation
             
         # dealer forced to take cards
-        dealer_hand, dealer_value = take_until_enough(dealer_hand, deck)
-        result = check_five_cards(dealer_hand, dealer_value)
+        dealer_hand, dealer_value = take_until_enough(dealer_hand, deck) 
+        result = check_five_cards(dealer_hand, dealer_value, 2) # 2 means player 2
         if result:
-            match result:
-                case "dragon_21":
-                    print(f"Player 2 win with 3x multiplier")
-                    show_hand(player_hand, dealer_hand)
-                case "dragon":
-                    print(f"Player 2 win with 3x multiplier")
-                    show_hand(player_hand, dealer_hand)
-                case "bust":
-                    print(f"Player 2 lose with 2x multiplier")
-                    show_hand(player_hand, dealer_hand)
-                case _:
-                    print("ERROR: unknown results from check_dragon")
-                    show_hand(player_hand, dealer_hand)
+            print(f"Player {result[0]} win with {result[1]}x multiplier")
+            show_hand(player_hand, dealer_hand)
+            if result[0] == 1: # if player one wins
+                player_reward = result[1]
+            else:
+                player_reward = -result[1]
+            enter_into_table(player_reward, player_action, player_hit_table, player_hitnum_table, player_stand_table, player_standnum_table)
+            enter_into_table(-player_reward, dealer_action, dealer_hit_table, dealer_hitnum_table, dealer_stand_table, dealer_standnum_table)
             return #end simulation
         
         # Dealer's turn of taking card actions
         while len(dealer_hand) < 5: 
+            # Check if player are forced to take cards
+            if not any(16 < v < 22 for v in dealer_value) and dealer_value[0] < 22:
+                dealer_hand, dealer_value = take_until_enough(dealer_hand, deck)
+                
             hit = random.randint(0,1) #randomly hit or stand until explode or stop
             if hit and dealer_value[0] < 21 and 21 not in dealer_value:
                 dealer_action.append((val_to_key(dealer_value), hit, len(dealer_hand)))
                 dealer_hand.append(deck.rand_take_card())
                 dealer_value = check_value(dealer_hand)
             else:
-                dealer_action.append((val_to_key(dealer_value), hit, len(dealer_hand)))
+                dealer_action.append((val_to_key(dealer_value), 0, len(dealer_hand)))
                 break
         # Check if dealer reach 5 cards
-        result = check_five_cards(dealer_hand, dealer_value)
+        result = check_five_cards(dealer_hand, dealer_value, 2) # 2 means player 2
         if result:
-            match result:
-                case "dragon_21":
-                    print(f"Player 2 win with 3x multiplier")
-                    show_hand(player_hand, dealer_hand)
-                case "dragon":
-                    print(f"Player 2 win with 3x multiplier")
-                    show_hand(player_hand, dealer_hand)
-                case "bust":
-                    print(f"Player 2 lose with 2x multiplier")
-                    show_hand(player_hand, dealer_hand)
-                case _:
-                    print("ERROR: unknown results from check_dragon")
-                    show_hand(player_hand, dealer_hand)
+            print(f"Player {result[0]} win with {result[1]}x multiplier")
+            show_hand(player_hand, dealer_hand)
             # Enter into EV table
+            if result[0] == 1: # if player one wins
+                player_reward = result[1]
+            else:
+                player_reward = -result[1]
+            enter_into_table(player_reward, player_action, player_hit_table, player_hitnum_table, player_stand_table, player_standnum_table)
+            enter_into_table(-player_reward, dealer_action, dealer_hit_table, dealer_hitnum_table, dealer_stand_table, dealer_standnum_table)
             return #end simulation
         
         # Make them duel then enter into EV table
+        duel_outcome = check_duel(player_hand, dealer_hand, player_value, dealer_value)
         show_hand(player_hand, dealer_hand)
-        print(f"Player action: {player_action}\t Dealer action: {dealer_action}") #TODO: make emptying dealer and player hand
+        print(f"Player DUEL: player {duel_outcome[0]} wins with {duel_outcome[1]}x bet")
+        print(f"Player action: {player_action}\t Dealer action: {dealer_action}")
+        if duel_outcome[0] == 0:
+            return # its a draw
+        if duel_outcome[0] == 1: #player wins
+            reward = duel_outcome[1]
+        if duel_outcome[0] == 2:
+            reward = -duel_outcome[1]
+            
+        enter_into_table(reward, player_action, player_hit_table, player_hitnum_table, player_stand_table, player_standnum_table)
+        enter_into_table(-reward, dealer_action, dealer_hit_table, dealer_hitnum_table, dealer_stand_table, dealer_standnum_table)
 
-
-# show_hand(hand1, hand2)
-# print(check_inst_winner(hand1, hand2, v1, v2))
-# print(v1)
-# print(v2)
-# print(check_duel(v1, v2))
-# print(val_to_key(v2))
-# print(EV_table[val_to_key(v2)])
-# hand2 = [(3, 0), (0, 1), (1, 0)]
-# v2 = check_value(hand2)
-
+def open_or_create_file(filepath: str) -> dict:
+    table_template = {
+        "15": [0, 0, 0],
+        "16": [0, 0, 0],
+        "17": [0, 0, 0],
+        "18": [0, 0, 0],
+        "19": [0, 0, 0],
+        "20": [0, 0, 0],
+        "S15": [0, 0, 0],
+        "S16": [0, 0, 0],
+        "S17": [0, 0, 0],
+        "S18": [0, 0, 0],
+        "S19": [0, 0, 0],# soft 19
+        "S20": [0, 0, 0],
+    }
+    if os.path.exists(filepath):
+        with open(filepath, "r") as f:
+            resultDict = json.load(f)
+    else:
+        with open(filepath, "w") as f:
+            json.dump(table_template, f, indent=4)
+            resultDict = table_template
+    return resultDict
 
 if __name__ == "__main__":
-    hand1 = [(3, 9), (0, 4), (0, 4), (0, 2), (0, 1)]
-    hand2 = [(0, 5), (0, 5)]
+    start_time = time.perf_counter()
+    hand1 = [(3, 10), (0, 7), (0, 2)]
+    hand2 = [(0, 0), (0, 3), (0, 0)]
     v1 = check_value(hand1)
     v2 = check_value(hand2)
-    simulate()
+    # Load from file, create if file doesn't exist
+    player_hit_table = open_or_create_file("player_hit_table.json")
+    player_stand_table = open_or_create_file("player_stand_table.json")
+    player_hitnum_table = open_or_create_file("player_hitnum_table.json")
+    player_standnum_table = open_or_create_file("player_standnum_table.json")
+    dealer_hit_table = open_or_create_file("dealer_hit_table.json")
+    dealer_stand_table = open_or_create_file("dealer_stand_table.json")
+    dealer_hitnum_table = open_or_create_file("dealer_hitnum_table.json")
+    dealer_standnum_table = open_or_create_file("dealer_standnum_table.json")
+
+    # Runs simulate for n amount of times
+    for i in range(5):
+        simulate()
+
+    # Write everythings into the files
+    with open("player_hit_table.json", "w") as f:
+        json.dump(player_hit_table, f, indent=4)
+    with open("player_stand_table.json", "w") as f:
+        json.dump(player_stand_table, f, indent=4)
+    with open("player_hitnum_table.json", "w") as f:
+        json.dump(player_hitnum_table, f, indent=4)
+    with open("player_standnum_table.json", "w") as f:
+        json.dump(player_standnum_table, f, indent=4)
+
+    with open("dealer_hit_table.json", "w") as f:
+        json.dump(dealer_hit_table, f, indent=4)
+    with open("dealer_stand_table.json", "w") as f:
+        json.dump(dealer_stand_table, f, indent=4)
+    with open("dealer_hitnum_table.json", "w") as f:
+        json.dump(dealer_hitnum_table, f, indent=4)
+    with open("dealer_standnum_table.json", "w") as f:
+        json.dump(dealer_standnum_table, f, indent=4)
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    print(f"Code executed in {elapsed_time:.4f} seconds")
 
 
 # while True:
