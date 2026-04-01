@@ -428,6 +428,35 @@ def open_or_create_file(filepath: str) -> dict:
             resultDict = table_template
     return resultDict
 
+def calc_best(hit_earning: dict, stand_earning: dict, hit_num_simul: dict, stand_num_simul: dict) -> dict:
+    '''
+    Calculate whether hit or stand os the better move. Output a dict of H/S
+    '''
+    result = {}
+    for key in hit_earning.keys():
+        result[key] = []
+        for i in range(3):
+            hit_value = hit_earning[key][i]
+            hit_num = hit_num_simul[key][i]
+            stand_value = stand_earning[key][i]
+            stand_num = stand_num_simul[key][i]
+            if hit_num == 0 or stand_num == 0:
+                # print()
+                # print(f"Move: {key} hand size: {i + 2}")
+                # print(f"EMPTY hit num: {hit_num} stand num: {stand_num}")
+                result[key].append('')
+                continue
+            hit_ev = float(hit_value/hit_num)
+            stand_ev = float(stand_value/stand_num)
+            if hit_ev > stand_ev:
+                result[key].append('H')
+            elif hit_ev < stand_ev:
+                result[key].append('S')
+            else:
+                result[key].append("D")
+    return result
+
+
 if __name__ == "__main__":
     start_time = time.perf_counter()
     hand1 = [(3, 10), (0, 7), (0, 2)]
@@ -445,7 +474,7 @@ if __name__ == "__main__":
     dealer_standnum_table = open_or_create_file("dealer_standnum_table.json")
 
     # Runs simulate for n amount of times
-    for i in range(1000):
+    for i in range(9000000):
         simulate()
 
     # Write everythings into the files
@@ -466,6 +495,12 @@ if __name__ == "__main__":
         json.dump(dealer_hitnum_table, f, indent=4)
     with open("dealer_standnum_table.json", "w") as f:
         json.dump(dealer_standnum_table, f, indent=4)
+    player_best = calc_best(player_hit_table, player_stand_table, player_hitnum_table, player_standnum_table)
+    dealer_best = calc_best(dealer_hit_table, dealer_stand_table, dealer_hitnum_table, dealer_standnum_table)
+    with open("player_best_moves.json", "w") as f:
+        json.dump(player_best, f, indent=4)
+    with open("dealer_best_moves.json", "w") as f:
+        json.dump(dealer_best, f, indent=4)
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
     print(f"Code executed in {elapsed_time:.4f} seconds")
