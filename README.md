@@ -50,38 +50,38 @@ The banker deals 2 cards to all players face down, then deals himself 2 cards fa
 
 ### 🎮 Player Ban-Luck Strategy Table
 
-| Hand \ Size | 2 Cards  | 3 Cards  | 4 Cards  |
-| :---------: | :------: | :------: | :------: |
-|   **15**    | 🔵 STAND |    ⚪    |    ⚪    |
-|   **16**    |  🔴 HIT  |  🔴 HIT  |  🔴 HIT  |
-|   **17**    | 🔵 STAND | 🔵 STAND | 🔵 STAND |
-|   **18**    | 🔵 STAND | 🔵 STAND | 🔵 STAND |
-|   **19**    | 🔵 STAND | 🔵 STAND | 🔵 STAND |
-|   **20**    | 🔵 STAND | 🔵 STAND | 🔵 STAND |
-|   **S15**   |  🔴 HIT  |    ⚪    |    ⚪    |
-|   **S16**   |  🔴 HIT  |  🔴 HIT  |  🔴 HIT  |
-|   **S17**   |  🔴 HIT  |  🔴 HIT  |  🔴 HIT  |
-|   **S18**   |  🔴 HIT  |  🔴 HIT  |  🔴 HIT  |
-|   **S19**   | 🔵 STAND |  🔴 HIT  |  🔴 HIT  |
-|   **S20**   | 🔵 STAND |  🔴 HIT  |  🔴 HIT  |
+| Hand \ Size |  2 Cards   | 3 Cards  | 4 Cards  |
+| :---------: | :--------: | :------: | :------: |
+|   **15**    | 🔵 FORFEIT |    ⚪    |    ⚪    |
+|   **16**    |   🔴 HIT   |  🔴 HIT  |  🔴 HIT  |
+|   **17**    |  🔵 STAND  | 🔵 STAND | 🔵 STAND |
+|   **18**    |  🔵 STAND  | 🔵 STAND | 🔵 STAND |
+|   **19**    |  🔵 STAND  | 🔵 STAND | 🔵 STAND |
+|   **20**    |  🔵 STAND  | 🔵 STAND | 🔵 STAND |
+|   **S15**   |   🔴 HIT   |    ⚪    |    ⚪    |
+|   **S16**   |   🔴 HIT   |  🔴 HIT  |  🔴 HIT  |
+|   **S17**   |   🔴 HIT   |  🔴 HIT  |  🔴 HIT  |
+|   **S18**   |   🔴 HIT   |  🔴 HIT  |  🔴 HIT  |
+|   **S19**   |  🔵 STAND  |  🔴 HIT  |  🔴 HIT  |
+|   **S20**   |  🔵 STAND  |  🔴 HIT  |  🔴 HIT  |
 
 > **Legend:** 🔴 = Hit | 🔵 = Stand | ⚪ = Not Applicable
 
 ### 🎮 Dealer Ban-Luck Strategy Table
 
-| Hand \ Size | 2 Cards  | 3 Cards  | 4 Cards  |
-| :---------: | :------: | :------: | :------: |
-|   **15**    | 🔵 STAND |    ⚪    |    ⚪    |
-|   **16**    |  🔴 HIT  |  🔴 HIT  |  🔴 HIT  |
-|   **17**    | 🔵 STAND | 🔵 STAND | 🔵 STAND |
-|   **18**    | 🔵 STAND | 🔵 STAND | 🔵 STAND |
-|   **19**    | 🔵 STAND | 🔵 STAND | 🔵 STAND |
-|   **20**    | 🔵 STAND | 🔵 STAND | 🔵 STAND |
-|   **S15**   |  🔴 HIT  |    ⚪    |    ⚪    |
-|   **S16**   |  🔴 HIT  |  🔴 HIT  |  🔴 HIT  |
-|   **S17**   |  🔴 HIT  |  🔴 HIT  |  🔴 HIT  |
-|   **S18**   |  🔴 HIT  |  🔴 HIT  |  🔴 HIT  |
-|   **S19**   | 🔵 STAND |  🔴 HIT  |  🔴 HIT  |
-|   **S20**   | 🔵 STAND |  🔴 HIT  |  🔴 HIT  |
+| Hand \ Size |  2 Cards   | 3 Cards  | 4 Cards  |
+| :---------: | :--------: | :------: | :------: |
+|   **15**    | 🔵 FORFEIT |    ⚪    |    ⚪    |
+|   **16**    |   🔴 HIT   |  🔴 HIT  |  🔴 HIT  |
+|   **17**    |  🔵 STAND  | 🔵 STAND | 🔵 STAND |
+|   **18**    |  🔵 STAND  | 🔵 STAND | 🔵 STAND |
+|   **19**    |  🔵 STAND  | 🔵 STAND | 🔵 STAND |
+|   **20**    |  🔵 STAND  | 🔵 STAND | 🔵 STAND |
+|   **S15**   |   🔴 HIT   |    ⚪    |    ⚪    |
+|   **S16**   |   🔴 HIT   |  🔴 HIT  |  🔴 HIT  |
+|   **S17**   |   🔴 HIT   |  🔴 HIT  |  🔴 HIT  |
+|   **S18**   |   🔴 HIT   |  🔴 HIT  |  🔴 HIT  |
+|   **S19**   |  🔵 STAND  |  🔴 HIT  |  🔴 HIT  |
+|   **S20**   |  🔵 STAND  |  🔴 HIT  |  🔴 HIT  |
 
 > **Legend:** 🔴 = Hit | 🔵 = Stand | ⚪ = Not Applicable
