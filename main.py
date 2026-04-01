@@ -191,7 +191,7 @@ def enter_into_table(outcome: int, actions: list, hit_table: dict, hitnum_table:
     '''
     for action in actions:
         position, hit, handSize = action
-        if position: # Check if valid position
+        if position and handSize - 2 < 3: # Check if valid position and handSize
             if hit:
                 hitnum_table[position][handSize-2] += 1
                 hit_table[position][handSize-2] += outcome
@@ -313,13 +313,13 @@ def simulate() -> None:
             if not any(16 < v < 22 for v in player_value) and player_value[0] < 22:
                 player_hand, player_value = take_until_enough(player_hand, deck)
 
-            # Check if busted or alr 21
-            if player_value[0] >= 21:
+            # Check if busted or alr 21 or reach 5 cards
+            if player_value[0] >= 21 or len(player_hand) >= 5 or 21 in player_value:
                 player_action.append((val_to_key(player_value), 0, len(player_hand)))
                 break
             hit_score = calc_score(True, val_to_key(player_value), len(player_hand), player_hit_table, player_hitnum_table, player_standnum_table)
             stand_score = calc_score(False, val_to_key(player_value), len(player_hand), player_stand_table, player_hitnum_table, player_standnum_table)
-            if (hit_score > stand_score) and player_value[0] < 21 and 21 not in player_value:
+            if (hit_score > stand_score):
                 player_action.append((val_to_key(player_value), 1, len(player_hand)))
                 player_hand.append(deck.rand_take_card())
                 player_value = check_value(player_hand)
@@ -362,13 +362,13 @@ def simulate() -> None:
             if not any(16 < v < 22 for v in dealer_value) and dealer_value[0] < 22:
                 dealer_hand, dealer_value = take_until_enough(dealer_hand, deck)
 
-            # Check if busted or alr 21
-            if dealer_value[0] >= 21:
+            # Check if busted or alr 21 or reach 5 cards
+            if dealer_value[0] >= 21 or len(dealer_hand) >= 5 or 21 in dealer_value:
                 dealer_action.append((val_to_key(dealer_value), 0, len(dealer_hand)))
                 break
             hit_score = calc_score(True, val_to_key(dealer_value), len(dealer_hand), dealer_hit_table, dealer_hitnum_table, dealer_standnum_table)
             stand_score = calc_score(False, val_to_key(dealer_value), len(dealer_hand), dealer_stand_table, dealer_hitnum_table, dealer_standnum_table)
-            if (hit_score > stand_score) and 21 not in dealer_value:
+            if (hit_score > stand_score):
                 dealer_action.append((val_to_key(dealer_value), 1, len(dealer_hand)))
                 dealer_hand.append(deck.rand_take_card())
                 dealer_value = check_value(dealer_hand)
@@ -445,7 +445,7 @@ if __name__ == "__main__":
     dealer_standnum_table = open_or_create_file("dealer_standnum_table.json")
 
     # Runs simulate for n amount of times
-    for i in range(5):
+    for i in range(1000):
         simulate()
 
     # Write everythings into the files
