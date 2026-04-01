@@ -2,6 +2,7 @@ import random
 import os
 import json
 import time
+import math
 
 class Deck:
     def __init__(self):
@@ -140,30 +141,26 @@ def check_duel(hand1: list,hand2: list, v1: list, v2: list): #Assume no player r
 # }
 #Turn values into key for ev table for hands with enough value, if too small will have bug
 def val_to_key(values: list):
-    s = ""
-    if len(values) < 2:
-        if values[0] > 20 or values[0] < 15:
-            print("ERROR: Value too big or too small")
-            return None
-        s = str(values[0])
-    else: 
-        if values[1] < 15:
-            print("ERROR: softhand too small")
-            return None
-        if values[1] > 21: #softhand forced into hard one
-            if values[0] <16:
-                print("ERROR: softhand forced to take cards")
-                return None
-            if values[0] > 20:
-                print("ERROR: hand busted")
-                return None
-            s = str(values[0])
-        elif values[1] == 21:
-            print("ERROR: You alr have 21")
-            return None
-        else: #Softhand
-            s = "S" + str(values[1])
-    return s
+    if not values:
+        return None
+
+    # Check for 21 separately
+    if 21 in values:
+        return None  # Or handle as special case
+
+    # Prefer soft hand if available
+    for v in reversed(values):
+        if 15 <= v <= 20:
+            if v > values[0]:  # Likely a soft total
+                return f"S{v}"
+            else:
+                return str(v)
+
+    # Fallback: use lowest valid value
+    if 15 <= values[0] <= 20:
+        return str(values[0])
+
+    return None  # No valid key
 # Check if 5 cards and return result (a, b) with who won and how much. If < 5 cards, return None
 def check_five_cards(hand: list, value: list, player: int) -> tuple:
     if len(hand) == 5:
@@ -203,6 +200,47 @@ def enter_into_table(outcome: int, actions: list, hit_table: dict, hitnum_table:
                 stand_table[position][handSize-2] += outcome
 
 
+def calc_score(hit: bool, position: str, handSize: int, earning_table: dict, hit_num_simul: dict, stand_num_simul: dict) -> float:
+    '''
+    Calculate score of each move whether it is hit or stand based on table
+    Formula:
+    score = E/N + sqrt(2 * ln(N + N')/N)
+    E = total earning made from this action
+    N = number of simulation for this action
+    N' = number of simulation for the opposite action (if N is hit, then N' is stand and vice versa)
+    '''
+    try:
+        E = earning_table[position][handSize-2]
+        if hit: #Calculating score for player hitting?
+            N = hit_num_simul[position][handSize-2]
+            Np = stand_num_simul[position][handSize-2]
+        else: # Calculating score for player standing
+            Np = hit_num_simul[position][handSize-2]
+            N = stand_num_simul[position][handSize-2]
+        if N == 0: #force exploration if never explore before
+            return float('inf')
+        
+        exploration = math.sqrt(2 * math.log(N+Np)/N)
+        exploitation = E/N
+
+        return exploitation + exploration
+    except Exception as e:
+        print("\n" + "="*40)
+        print(f"💥 CRASH DETECTED: {type(e).__name__}: {e}")
+        print("="*40)
+        print("📍 Function: calc_score")
+        print("📦 Variables at crash time:")
+        
+        # locals() returns a dictionary of all local variables
+        for var_name, value in locals().items():
+            # Skip hiding internal variables like 'e' or 'var_name' if you want
+            print(f"   {var_name} = {value}")
+            
+        print("="*40 + "\n")
+        
+        # Re-raise the exception so the program still stops (important!)
+        raise
+
 def simulate() -> None:
     print()
     deck = Deck()
@@ -222,8 +260,10 @@ def simulate() -> None:
         player_action = []
         dealer_action = []
         if 15 in player_value: #Player run?
-            run = random.randint(0,1)
-            if run:
+            # run = random.randint(0,1)
+            hit_score = calc_score(True, val_to_key(player_value), len(player_hand), player_hit_table, player_hitnum_table, player_standnum_table)
+            stand_score = calc_score(False, val_to_key(player_value), len(player_hand), player_stand_table, player_hitnum_table, player_standnum_table)
+            if hit_score < stand_score:
                 player_action.append((val_to_key(player_value), 0, len(player_hand)))
                 # insert into EV table
                 player_standnum_table[val_to_key(player_value)][0] += 1 # 0 means when there is only 2 cards
@@ -236,15 +276,18 @@ def simulate() -> None:
                 player_value = check_value(player_hand)
             
         if 15 in dealer_value: # Dealer run?
-            run = random.randint(0,1)
-            if run:
+            # run = random.randint(0,1)
+            hit_score = calc_score(True, val_to_key(dealer_value), len(dealer_hand), dealer_hit_table, dealer_hitnum_table, dealer_standnum_table)
+            stand_score = calc_score(False, val_to_key(dealer_value), len(dealer_hand), dealer_stand_table, dealer_hitnum_table, dealer_standnum_table)
+            if hit_score < stand_score:
                 dealer_action.append((val_to_key(dealer_value), 0, len(dealer_hand)))
                 # insert into EV table
                 dealer_standnum_table[val_to_key(dealer_value)][0] += 1
                 print("Dealer ran away")
                 show_hand(player_hand, dealer_hand)
                 return
-            else:
+            else: 
+                # dealer chose to hit
                 dealer_action.append((val_to_key(dealer_value), 1, len(dealer_hand)))
                 dealer_hand.append(deck.rand_take_card())
                 dealer_value = check_value(dealer_hand)
@@ -270,9 +313,14 @@ def simulate() -> None:
             if not any(16 < v < 22 for v in player_value) and player_value[0] < 22:
                 player_hand, player_value = take_until_enough(player_hand, deck)
 
-            hit = random.randint(0,1) #randomly hit or stand until explode or stop
-            if hit and player_value[0] < 21 and 21 not in player_value:
-                player_action.append((val_to_key(player_value), hit, len(player_hand)))
+            # Check if busted or alr 21
+            if player_value[0] >= 21:
+                player_action.append((val_to_key(player_value), 0, len(player_hand)))
+                break
+            hit_score = calc_score(True, val_to_key(player_value), len(player_hand), player_hit_table, player_hitnum_table, player_standnum_table)
+            stand_score = calc_score(False, val_to_key(player_value), len(player_hand), player_stand_table, player_hitnum_table, player_standnum_table)
+            if (hit_score > stand_score) and player_value[0] < 21 and 21 not in player_value:
+                player_action.append((val_to_key(player_value), 1, len(player_hand)))
                 player_hand.append(deck.rand_take_card())
                 player_value = check_value(player_hand)
             else:
@@ -313,10 +361,15 @@ def simulate() -> None:
             # Check if player are forced to take cards
             if not any(16 < v < 22 for v in dealer_value) and dealer_value[0] < 22:
                 dealer_hand, dealer_value = take_until_enough(dealer_hand, deck)
-                
-            hit = random.randint(0,1) #randomly hit or stand until explode or stop
-            if hit and dealer_value[0] < 21 and 21 not in dealer_value:
-                dealer_action.append((val_to_key(dealer_value), hit, len(dealer_hand)))
+
+            # Check if busted or alr 21
+            if dealer_value[0] >= 21:
+                dealer_action.append((val_to_key(dealer_value), 0, len(dealer_hand)))
+                break
+            hit_score = calc_score(True, val_to_key(dealer_value), len(dealer_hand), dealer_hit_table, dealer_hitnum_table, dealer_standnum_table)
+            stand_score = calc_score(False, val_to_key(dealer_value), len(dealer_hand), dealer_stand_table, dealer_hitnum_table, dealer_standnum_table)
+            if (hit_score > stand_score) and 21 not in dealer_value:
+                dealer_action.append((val_to_key(dealer_value), 1, len(dealer_hand)))
                 dealer_hand.append(deck.rand_take_card())
                 dealer_value = check_value(dealer_hand)
             else:
@@ -416,26 +469,3 @@ if __name__ == "__main__":
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
     print(f"Code executed in {elapsed_time:.4f} seconds")
-
-
-# while True:
-#     show_hand()
-#     action = input("(P1) Would you like to take a card? [Y/N]\n").upper()
-#     clear()
-#     if action == "Y":
-#         p1_hand.append(d.rand_take_card())
-#     elif action == "N":
-#         break
-#     else:
-#         print("Invalid action, please try again.")
-# while True:
-#     show_hand()
-#     action = input("(P2) Would you like to take a card? [Y/N]\n").upper()
-#     clear()
-#     if action == "Y":
-#         p2_hand.append(d.rand_take_card())
-#     elif action == "N":
-#         break
-#     else:
-#         print("Invalid action, please try again.")
-# show_hand()
